@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	http.HandleFunc("/", index) // 设置访问的路由
 	http.HandleFunc("/login/action", loginAction)
 	http.HandleFunc("/query", query)
@@ -140,6 +143,59 @@ func query(w http.ResponseWriter, r *http.Request) {
 		page += `
 			</table>
 		</body>`
+	} else if q == "random" {
+		page += `
+		<body>
+			<table width="50%" border="1">
+				<tr>
+				<td>ID</td>
+				<td>店名</td>
+				<td>開始營業時間</td>
+				<td>結束營業時間</td>
+				<td>地址</td>
+				<td>評論</td>
+				<td>操作選項</td>
+				</tr>
+			
+		`
+
+		db, err := sql.Open("sqlite3", "./food.db")
+		checkErr(err)
+		defer db.Close()
+		var id int
+		var name string
+		var open_begin string
+		var open_end string
+		var location string
+		var comment string
+
+		var storesCount int
+		rows, err := db.Query("SELECT COUNT(*) FROM stores")
+		checkErr(err)
+		if rows.Next() {
+			err = rows.Scan(&storesCount)
+			checkErr(err)
+		}
+		rows.Close()
+
+		rows, err = db.Query("SELECT * FROM stores WHERE id = " + strconv.Itoa(rand.Intn(storesCount)+1))
+		if rows.Next() {
+			err = rows.Scan(&id, &name, &open_begin, &open_end, &location, &comment)
+			checkErr(err)
+			page += `<tr>
+			<td>` + strconv.Itoa(id) + `</td>
+			<td>` + name + `</td>
+			<td>` + open_begin + `</td>
+			<td>` + open_end + `</td>
+			<td>` + location + `</td>
+			<td>` + comment + `</td>
+			<td>
+			<input type="button" value="修改"  onclick="location.href='http://google.com'">
+			<input type="button" value="刪除"  onclick="location.href='http://google.com'">
+			</td>
+			</tr>
+			`
+		}
 	}
 
 	fmt.Fprintf(w, page)
@@ -192,5 +248,6 @@ func registerAction(w http.ResponseWriter, r *http.Request) {
 func checkErr(err error) {
 	if err != nil {
 		panic(err)
+		log.Fatal(err)
 	}
 }

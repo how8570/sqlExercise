@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strings"
+	"strconv"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -17,7 +17,6 @@ func main() {
 	http.HandleFunc("/query", query)
 	http.HandleFunc("/register", register)
 	http.HandleFunc("/register/action", registerAction)
-	http.HandleFunc("/register/result", registerResult)
 	err := http.ListenAndServe(":80", nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
@@ -30,10 +29,10 @@ func index(w http.ResponseWriter, r *http.Request) {
 	// fmt.Println("path", r.URL.Path)
 	// fmt.Println("scheme", r.URL.Scheme)
 	// fmt.Println(r.Form["url_long"])
-	for k, v := range r.Form {
-		fmt.Println("key:", k)
-		fmt.Println("val:", strings.Join(v, ""))
-	}
+	// for k, v := range r.Form {
+	// 	fmt.Println("key:", k)
+	// 	fmt.Println("val:", strings.Join(v, ""))
+	// }
 
 	pageByte, err := ioutil.ReadFile("./pages/index.html")
 	checkErr(err)
@@ -47,41 +46,27 @@ func loginAction(w http.ResponseWriter, r *http.Request) {
 	var page string
 
 	r.ParseForm()
-	fmt.Println(r.Form)
-	fmt.Println("path", r.URL.Path)
-	fmt.Println("scheme", r.URL.Scheme)
-	fmt.Println(r.Form["url_long"])
-	for k, v := range r.Form {
-		fmt.Println("key:", k)
-		fmt.Println("val:", strings.Join(v, ""))
-	}
 
-	account := r.Form.Get("account")
+	username := r.Form.Get("username")
 	pass := r.Form.Get("pass")
 
-	if account == "" || pass == "" { // 回到 index
-		page = `<!DOCTYPE html>
-		<script>
-		window.location.replace("/"); 
-		</script>
-		`
-	} else {
-		db, err := sql.Open("sqlite3", "./food.db")
-		checkErr(err)
-		defer db.Close()
-		sql := "SELECT * FROM users WHERE account = '" + account + "' AND " + "pass = '" + pass + "';"
-		fmt.Println(sql)
-		q, err := db.Query(sql)
-		checkErr(err)
-		if q.Next() {
-			page = `
+	db, err := sql.Open("sqlite3", "./food.db")
+	checkErr(err)
+	defer db.Close()
+	stmt, err := db.Prepare("SELECT * FROM users WHERE username = ? AND pass = ?;")
+	defer stmt.Close()
+	checkErr(err)
+	q, err := stmt.Query(username, pass)
+	checkErr(err)
+	if q.Next() {
+		page = `
 			<!DOCTYPE html>
 			<script>
 			window.location.replace("/query"); 
 			</script>
 			`
-		} else { // 回到 index
-			page = `<!DOCTYPE html>
+	} else { // 回到 index
+		page = `<!DOCTYPE html>
 			<body>
 			<p>沒這個 user 或是 密碼錯了喔</p>
 			<a id="確定" href="/">
@@ -90,69 +75,116 @@ func loginAction(w http.ResponseWriter, r *http.Request) {
 			</body>
 			</html>
 			`
-		}
-		q.Close()
 	}
+	q.Close()
 
 	fmt.Fprintf(w, page)
 }
 
 func query(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	page := `<!DOCTYPE html>
-	<html>
-	<body>
+	pageByte, err := ioutil.ReadFile("./pages/query.html")
+	checkErr(err)
 
-	<p>:D</p>
+	page := string(pageByte[:])
 
-	</body>
-	</html>
-	`
+	q := r.Form.Get("q")
+	if q == "stores" {
+		page += `
+		<body>
+			<table width="50%" border="1">
+				<tr>
+				<td>ID</td>
+				<td>店名</td>
+				<td>開始營業時間</td>
+				<td>結束營業時間</td>
+				<td>地址</td>
+				<td>評論</td>
+				<td>操作選項</td>
+				</tr>
+			
+		`
+
+		db, err := sql.Open("sqlite3", "./food.db")
+		checkErr(err)
+		defer db.Close()
+
+		rows, err := db.Query("SELECT * FROM stores")
+		checkErr(err)
+		var id int
+		var name string
+		var open_begin string
+		var open_end string
+		var location string
+		var comment string
+
+		for rows.Next() {
+			err = rows.Scan(&id, &name, &open_begin, &open_end, &location, &comment)
+			checkErr(err)
+			page += `<tr>
+			<td>` + strconv.Itoa(id) + `</td>
+			<td>` + name + `</td>
+			<td>` + open_begin + `</td>
+			<td>` + open_end + `</td>
+			<td>` + location + `</td>
+			<td>` + comment + `</td>
+			<td>
+			<input type="button" value="修改"  onclick="location.href='http://google.com'">
+			<input type="button" value="刪除"  onclick="location.href='http://google.com'">
+			</td>
+			</tr>
+			`
+		}
+		rows.Close()
+
+		page += `
+			</table>
+		</body>`
+	}
 
 	fmt.Fprintf(w, page)
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	for k, v := range r.Form {
-		fmt.Println("key:", k)
-		fmt.Println("val:", strings.Join(v, ""))
-	}
+	pageByte, err := ioutil.ReadFile("./pages/register/register.html")
+	checkErr(err)
 
-	page := `
-	`
+	page := string(pageByte[:])
 
 	fmt.Fprintf(w, page)
 }
 
 func registerAction(w http.ResponseWriter, r *http.Request) {
+	var page string
+
 	r.ParseForm()
 
-	for k, v := range r.Form {
+	db, err := sql.Open("sqlite3", "./food.db")
+	checkErr(err)
+	defer db.Close()
 
-		fmt.Println("key:", k)
-		fmt.Println("val:", strings.Join(v, ""))
+	// insert
+	stmt, err := db.Prepare("INSERT INTO users(username, pass, email) values(?,?,?)")
+	checkErr(err)
+	defer stmt.Close()
+
+	res, err := stmt.Exec(r.Form.Get("username"), r.Form.Get("pass"), r.Form.Get("email"))
+	if err != nil {
+		pageByte, err := ioutil.ReadFile("./pages/register/register_fail.html")
+		checkErr(err)
+		page = string(pageByte[:])
+	} else {
+		rows, err := res.RowsAffected()
+		checkErr(err)
+		if rows != 1 {
+			log.Fatalf("expected to affect 1 row, affected %d", rows)
+		}
+
+		pageByte, err := ioutil.ReadFile("./pages/register/register_success.html")
+		checkErr(err)
+		page = string(pageByte[:])
 	}
-
-	page := `
-		註冊成功
-	`
-
-	fmt.Fprintf(w, page)
-}
-
-func registerResult(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-
-	for k, v := range r.Form {
-
-		fmt.Println("key:", k)
-		fmt.Println("val:", strings.Join(v, ""))
-	}
-
-	page := `
-		註冊成功
-	`
 
 	fmt.Fprintf(w, page)
 }

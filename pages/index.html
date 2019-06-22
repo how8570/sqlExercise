@@ -2,12 +2,12 @@
   <html>
   <body>
   
-  <form action="/login/action">
+  <form action="/login/action" method="POST">
   帳號:<br>
-  <input type="text" name="account" value="">
+  <input type="text" name="username" value="" required>
   <br>
   密碼:<br>
-  <input type="text" name="pass" value="">
+  <input type="text" name="pass" value="" required>
   <br><br>
   <input type="submit" value="Submit">
   </form> 
@@ -18,9 +18,9 @@
   
 <p>
 請不要用常用的密碼喔，我是用明碼傳<br>
-我沒檢查sql injection 所以隨便inject都可以喔 不要drop delect就好感謝<(_ _)><br>
+現在不能 injection 了喔  如果要玩再跟我說喔 感謝<(_ _)><br>
 有一組帳密<br>
-account: admin<br>
+username: admin<br>
 pass:    admin<br>
 </p>
   

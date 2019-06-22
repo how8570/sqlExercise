@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+
+<body>
+
+<form name="myForm" action="/register/action" onsubmit="return validateForm()" method="POST">
+    <p>
+        使用者名稱: <input type="text" name="username" required>
+    </p>
+    <p>
+        密碼: <input type="password" name="pass" required>
+    </p>
+    <p>
+        確認密碼: <input type="password" name="pass1" required>
+    </p>
+    <p>
+        Email: <input type="email" name="email" required>
+    </p>  
+    <input type="submit" value="Submit">
+</form>
+
+</body>
+</html>
+
+
+<script>
+function validateForm() {
+  var pass = document.forms["myForm"]["pass"].value;
+  var pass2 = document.forms["myForm"]["pass2"].value;
+  if (pass != pass2) {
+    alert("兩次密碼輸入不相同!!");
+    return false;
+  }
+}
+</script>

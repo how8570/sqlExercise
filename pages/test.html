@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+
+<style>
+	div.section {
+		margin-top: 10px;
+	}
+
+	div.button {
+		display: inline;
+		border-style: solid;
+		border-radius: 10px;
+		padding: 2px 5px 2px 5px;
+		text-align: center;
+	}
+	div.button:hover {
+		background-color: #DDDDFF;
+	}
+	div.button.left {
+		margin-right: 0px;
+		border-radius: 10px 0px 0px 10px;
+	}
+	div.button.right {
+		margin-left: -2px;
+		border-radius: 0px 10px 10px 0px;
+	}
+
+	div.container {
+		display: inline-block;
+		border-style: solid;
+		padding: 6px;
+	}
+</style>
+
+</head>
+<body>
+	<div class="section">
+		<input type="text" id="txtKeyword" style="width:200px;"/> 
+		<div class="button left" id="btnAdd">+</div><div class ="button right" id="btnDel">-</div>
+	</div>
+	<div class="section">
+		<div class="container" id="include" style="width: 300px; min-height:80px;">
+			<div class="button left">Spicy</div><div class="button right">X</div>
+			<div class="button left">Noodle</div><div class="button right">X</div>
+		</div>
+		<div class="container" id="exclude" style="width: 300px; min-height:80px;">
+			...nothing
+		</div>
+	</div>
+	<div class="section">
+		<select id="boxSort">
+			<option value="rand" selected="selected">Random</option>
+			<option value="incr">Increasing</option>
+			<option value="decr">Decreasing</option>
+		</select>
+
+		List most <input type="number" id="txtListNum" /> results.
+
+		<div class="button">Find</div>
+	</div>
+	<div class="section" id="divResults">
+	</div>
+</body>
+</html>

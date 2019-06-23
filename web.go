@@ -10,20 +10,133 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	http.HandleFunc("/", index) // 设置访问的路由
-	http.HandleFunc("/login/action", loginAction)
-	http.HandleFunc("/query", query)
-	http.HandleFunc("/register", register)
-	http.HandleFunc("/register/action", registerAction)
-	err := http.ListenAndServe(":80", nil)
+
+	r := mux.NewRouter()
+	r.HandleFunc("/", index) // 设置访问的路由
+	r.HandleFunc("/login/action", loginAction)
+	r.HandleFunc("/query", query)
+	r.HandleFunc("/store/{id:[0-9]+}", modifyStore)
+	r.HandleFunc("/register", register)
+	r.HandleFunc("/register/action", registerAction)
+	err := http.ListenAndServe(":80", r)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
+}
+
+func modifyStore(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	page := `<!DOCTYPE html>
+	<head></head>
+	`
+	vars := mux.Vars(r)
+	id := vars["id"]
+	//fmt.Fprintf(w, id)
+
+	if r.Form.Get("a") == "upd" {
+
+		db, err := sql.Open("sqlite3", "./food.db")
+		checkErr(err)
+		defer db.Close()
+		stmt, err := db.Prepare("UPDATE stores SET name = ?, open_begin = ?, open_end = ?, location = ?, comment = ?  WHERE id = ?;")
+		checkErr(err)
+		defer stmt.Close()
+		res, err := stmt.Exec(r.Form.Get("name"), r.Form.Get("open_begin"), r.Form.Get("open_end"), r.Form.Get("location"), r.Form.Get("comment"), id)
+		for err != nil {
+			time.Sleep(30 * time.Millisecond)
+			res, err = stmt.Exec(r.Form.Get("name"), r.Form.Get("open_begin"), r.Form.Get("open_end"), r.Form.Get("location"), r.Form.Get("comment"), id)
+		}
+
+		lastID, err := res.LastInsertId()
+		checkErr(err)
+		rowCnt, err := res.RowsAffected()
+		checkErr(err)
+		log.Printf("ID = %d, affected = %d\n", lastID, rowCnt)
+
+		page += "<p>更新成功!</p>"
+	} else if r.Form.Get("a") == "del" {
+		page += `<p>真的要刪除麻?</p>
+		<form name="confirm" action="./` + id + `?a=delCONF"  method="POST">
+		<input type="submit" value="確定">
+		</form>
+		`
+	} else if r.Form.Get("a") == "delCONF" {
+
+		page += `<script>
+		alert("刪除成功")
+		window.location.replace("/query");
+		</script>
+		`
+	}
+
+	page += `
+	<body>
+		<table width="80%" border="1">
+			<tr>
+			<td>ID</td>
+			<td>店名</td>
+			<td>開始營業時間</td>
+			<td>結束營業時間</td>
+			<td>地址</td>
+			<td>評論</td>
+			<td>操作選項</td>
+			</tr>
+		
+		`
+	db, err := sql.Open("sqlite3", "./food.db")
+	checkErr(err)
+	defer db.Close()
+
+	rows, err := db.Query("SELECT * FROM stores WHERE id = " + id)
+	checkErr(err)
+	var name string
+	var open_begin string
+	var open_end string
+	var location string
+	var comment string
+
+	if rows.Next() {
+		err = rows.Scan(&id, &name, &open_begin, &open_end, &location, &comment)
+		checkErr(err)
+		page += `
+		<form name="myForm" method="POST" action="./` + id + `" >
+			<tr>
+			<td>` + id + `</td>
+			<td><input type="text" name="name" value="` + name + `" required></td>
+			<td><input type="text" name="open_begin" value="` + open_begin + `" required></td>
+			<td><input type="text" name="open_end" value="` + open_end + `" required></td>
+			<td><input type="text" name="location" value="` + location + `" required></td>
+			<td><input type="message" name="comment" value="` + comment + `" ></td>
+			<td>
+			<input type="hidden" name="a" value="upd">
+			<input type="submit" value="修改">
+			<input type="submit" value="刪除" formaction = "./` + id + `" onsubmit="return del()">
+			<input type="reset" value="回復">
+			</td>
+			</tr>
+		</form>
+		<script>
+		function del() {
+			document.forms["myForm"]["a"].value = 'del';
+			alert(document.forms["myForm"]["a"].value);
+			return false;
+		  }
+		</script>
+		`
+	}
+	rows.Close()
+
+	page += `
+		</table>
+	</body>`
+
+	fmt.Fprintf(w, page)
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
@@ -132,8 +245,7 @@ func query(w http.ResponseWriter, r *http.Request) {
 			<td>` + location + `</td>
 			<td>` + comment + `</td>
 			<td>
-			<input type="button" value="修改"  onclick="location.href='http://google.com'">
-			<input type="button" value="刪除"  onclick="location.href='http://google.com'">
+			<input type="button" value="修改"  onclick="location.href='./store/` + strconv.Itoa(id) + `'">
 			</td>
 			</tr>
 			`
@@ -190,12 +302,14 @@ func query(w http.ResponseWriter, r *http.Request) {
 			<td>` + location + `</td>
 			<td>` + comment + `</td>
 			<td>
-			<input type="button" value="修改"  onclick="location.href='http://google.com'">
-			<input type="button" value="刪除"  onclick="location.href='http://google.com'">
+			<input type="button" value="修改"  onclick="location.href='./store/` + strconv.Itoa(id) + `'">
 			</td>
 			</tr>
 			`
 		}
+		page += `
+			</table>
+		</body>`
 	}
 
 	fmt.Fprintf(w, page)
@@ -247,7 +361,6 @@ func registerAction(w http.ResponseWriter, r *http.Request) {
 
 func checkErr(err error) {
 	if err != nil {
-		panic(err)
 		log.Fatal(err)
 	}
 }

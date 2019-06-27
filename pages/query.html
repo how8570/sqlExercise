@@ -4,9 +4,12 @@
 </head>
 
 <body>
-    <input type="text" value="">
-    <p>修改，刪除並沒有實作 </p>
+    <form action="">
+        <input type="text" name="find" value="">
+        <input type="button" value="查詢有這菜的店家" >
+    </form>
     <input type="button" value="查詢所有店家"  onclick="location.href='/query?q=stores'">
+    <input type="button" value="查詢所有料理"  onclick="location.href='/query?q=dishes'">
     <input type="button" value="隨機骰出一個店家"  onclick="location.href='/query?q=random'">
-    <input type="button" value="新增店家"  onclick="location.href='/query/new_store.html'">
+    <!-- <input type="button" value= "新增店家(沒有實作)"  onclick="location.href='/query/new_store.html'"> -->
 </body>

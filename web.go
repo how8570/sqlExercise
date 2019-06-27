@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -105,6 +106,7 @@ func modifyStore(w http.ResponseWriter, r *http.Request) {
 		err = rows.Scan(&id, &name, &open_begin, &open_end, &location, &comment)
 		checkErr(err)
 		page += `
+		<p>刪除還沒有實作 </p>
 		<form name="myForm" method="POST" action="./` + id + `" >
 			<tr>
 			<td>` + id + `</td>
@@ -116,7 +118,7 @@ func modifyStore(w http.ResponseWriter, r *http.Request) {
 			<td>
 			<input type="hidden" name="a" value="upd">
 			<input type="submit" value="修改">
-			<input type="submit" value="刪除" formaction = "./` + id + `" onsubmit="return del()">
+			<input type="submit" value="刪除" formaction = "./` + id + `" onsubmit="return false">
 			<input type="reset" value="回復">
 			</td>
 			</tr>
@@ -168,19 +170,18 @@ func loginAction(w http.ResponseWriter, r *http.Request) {
 
 	db, err := sql.Open("sqlite3", "./food.db")
 	checkErr(err)
-	defer db.Close()
 	stmt, err := db.Prepare("SELECT * FROM users WHERE username = ? AND pass = ?;")
-	defer stmt.Close()
 	checkErr(err)
 	q, err := stmt.Query(username, pass)
 	checkErr(err)
+	stmt.Close()
 	if q.Next() {
 		page = `
-			<!DOCTYPE html>
-			<script>
-			window.location.replace("/query"); 
-			</script>
-			`
+		<!DOCTYPE html>
+		<script>
+		window.location.replace("/query"); 
+		</script>
+		`
 	} else { // 回到 index
 		page = `<!DOCTYPE html>
 			<body>
@@ -193,6 +194,7 @@ func loginAction(w http.ResponseWriter, r *http.Request) {
 			`
 	}
 	q.Close()
+	db.Close()
 
 	fmt.Fprintf(w, page)
 }
@@ -205,7 +207,59 @@ func query(w http.ResponseWriter, r *http.Request) {
 	page := string(pageByte[:])
 
 	q := r.Form.Get("q")
-	if q == "stores" {
+	findDish := r.Form.Get("find")
+	fmt.Println(findDish) // server check find value
+	if findDish != "" {
+		page += `
+		<body>
+			<table width="50%" border="1">
+				<tr>
+				<td>店名</td>
+				<td>料理</td>
+				<td>價格</td>
+				</tr>
+			
+		`
+		findDishMap := strings.Split(findDish, " ")
+		var queryStr string = ""
+		for i := range findDishMap {
+			if i > 0 {
+				queryStr += " OR dishes.name = "
+			}
+			queryStr += "'" + findDishMap[i] + "'"
+
+		}
+
+		db, err := sql.Open("sqlite3", "./food.db")
+		checkErr(err)
+		rows, err := db.Query(`
+		SELECT stores.name, dishes.name, dishes.price 
+		FROM stores, dishes 
+		WHERE stores.id = dishes.store_id AND (dishes.name = ` + queryStr + `)
+		ORDER BY stores.id;
+		`)
+		checkErr(err)
+
+		fmt.Println(queryStr)
+		checkErr(err)
+
+		var sname string
+		var dname string
+		var price string
+
+		for rows.Next() {
+			err = rows.Scan(&sname, &dname, &price)
+			checkErr(err)
+			page += `<tr>
+			<td>` + sname + `</td>
+			<td>` + dname + `</td>
+			<td>` + price + `</td>
+			</tr>
+			`
+		}
+		rows.Close()
+
+	} else if q == "stores" {
 		page += `
 		<body>
 			<table width="50%" border="1">
@@ -216,14 +270,12 @@ func query(w http.ResponseWriter, r *http.Request) {
 				<td>結束營業時間</td>
 				<td>地址</td>
 				<td>評論</td>
-				<td>操作選項</td>
 				</tr>
 			
 		`
 
 		db, err := sql.Open("sqlite3", "./food.db")
 		checkErr(err)
-		defer db.Close()
 
 		rows, err := db.Query("SELECT * FROM stores")
 		checkErr(err)
@@ -244,9 +296,6 @@ func query(w http.ResponseWriter, r *http.Request) {
 			<td>` + open_end + `</td>
 			<td>` + location + `</td>
 			<td>` + comment + `</td>
-			<td>
-			<input type="button" value="修改"  onclick="location.href='./store/` + strconv.Itoa(id) + `'">
-			</td>
 			</tr>
 			`
 		}
@@ -255,6 +304,38 @@ func query(w http.ResponseWriter, r *http.Request) {
 		page += `
 			</table>
 		</body>`
+		db.Close()
+	} else if q == "dishes" {
+		page += `
+		<body>
+			<table width="50%" border="1">
+				<tr>
+				<td>料理</td>
+				</tr>
+			
+		`
+
+		db, err := sql.Open("sqlite3", "./food.db")
+		checkErr(err)
+
+		rows, err := db.Query("SELECT DISTINCT name FROM dishes")
+		checkErr(err)
+		var name string
+
+		for rows.Next() {
+			err = rows.Scan(&name)
+			checkErr(err)
+			page += `<tr>
+			<td>` + name + `</td>
+			</tr>
+			`
+		}
+		rows.Close()
+
+		page += `
+			</table>
+		</body>`
+		db.Close()
 	} else if q == "random" {
 		page += `
 		<body>
@@ -266,7 +347,6 @@ func query(w http.ResponseWriter, r *http.Request) {
 				<td>結束營業時間</td>
 				<td>地址</td>
 				<td>評論</td>
-				<td>操作選項</td>
 				</tr>
 			
 		`
@@ -301,15 +381,13 @@ func query(w http.ResponseWriter, r *http.Request) {
 			<td>` + open_end + `</td>
 			<td>` + location + `</td>
 			<td>` + comment + `</td>
-			<td>
-			<input type="button" value="修改"  onclick="location.href='./store/` + strconv.Itoa(id) + `'">
-			</td>
 			</tr>
 			`
 		}
 		page += `
 			</table>
 		</body>`
+		db.Close()
 	}
 
 	fmt.Fprintf(w, page)
@@ -323,6 +401,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	page := string(pageByte[:])
 
 	fmt.Fprintf(w, page)
+
 }
 
 func registerAction(w http.ResponseWriter, r *http.Request) {
